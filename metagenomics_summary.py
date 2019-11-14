@@ -1,4 +1,4 @@
-#!usr/bin/env python
+#!/home/samar/anaconda3/bin/python3
 """Script to summarize a series of single sample metagenomics tables.
 Specify a list of files below, in this script file.
 
@@ -36,39 +36,68 @@ filelist = glob("*.txt")
 # Clean up headers to make them consistent / Python-friendly
 # (can comment out if not needed)
 for summaryfile in filelist:
-inheader = True
-for line in fileinput.input(summaryfile, inplace=1):
-if not inheader:
-print(line,end="")
-elif re.search(r'^[\n#]', line):  # drop empty lines & lines starting with "#"
-continue
-elif re.search(r'%', line):       # convert % in the column names to a more code-friendly "pct"
-print(re.sub('%', 'pct', line),end="")
-inheader = False   # now that we fixed the headers, just copy the rest of the file with no change
-elif re.search(r'^\s*\d+', line): # if the first non-blank/non-comment line starts with a number (ignoring whitespace) ...
-print("pct\treads\ttaxReads\trank\ttaxID\ttaxName\n",end="") # ... add these col names hard-coded for my Kraken files
-print(line,end="")
-inheader = False
+    print(summaryfile)
+    inheader = True
+    for line in fileinput.input(summaryfile, inplace=1):
+        if not inheader:
+            print(line,end="")  # now that we fixed the headers, just copy the rest of the file with no change
+        elif re.search(r'^[\n#]', line):  # drop empty lines & lines starting with "#" or '-'
+            continue
+        elif re.search(r'%', line):       # convert % in the column names to a more code-friendly "pct"
+            print(re.sub('tax_id', 'taxID', re.sub('%', 'pct', line)),end="")
+            inheader = False   
+        elif re.search(r'^\s*\d+', line): # if the first non-blank/non-comment line starts with a number (ignoring whitespace) ...
+            print("pct\treads\ttaxReads\trank\ttaxID\ttaxName\n",end="") # ... add these col names hard-coded for my Kraken files
+            print(line,end="")
+            inheader = False
 """
 
 # Combine all files into a big table
-alldata = pd.DataFrame({'pct':0, 'reads':0, 'taxReads':0, 'rank':'-', 'taxID':-1, 'taxName':'DUMMY', 'source':'-', 'classifier':'-', 'indent':-1.0}, index=[0])
+alldata = pd.DataFrame({'pct':0, 'reads':0, 'taxReads':0, 'kmers':0, 'dup':0, 'cov':0, 'rank':'-', 'taxID':-1, 'taxName':'DUMMY', 'source':'-', 'classifier':'-', 'indent':-1.0}, index=[0])
 for summaryfile in filelist:
+    print(summaryfile)
     filename_parse = re.split("\.", os.path.split(summaryfile)[1])
-    data = pd.read_csv(summaryfile,sep='\t',header=0,nrows=10)
+    data = pd.read_csv(summaryfile,sep='\t',header=0)
     data['source'] = filename_parse[0]         # keep track of sample ...
     data['classifier'] = filename_parse[1]     #      ... and classifier
-    data['indent'] = (data['taxName'].str.len() - data['taxName'].str.lstrip().str.len())/2
-    data['taxName'] = data['taxName'].str.lstrip()
 
-    Nunclassified = data[data.taxID == 0].reads.iloc[0]
-    Nroot = data[data.taxID == 1].reads.iloc[0]
-    Ntotal = Nunclassified + Nroot
+    if 'taxName' in data.columns:
+        data['indent'] = (data['taxName'].str.len() - data['taxName'].str.lstrip().str.len())/2
+        data['taxName'] = data['taxName'].str.lstrip()
+    else:
+        data['indent'] = 0
+        data['taxName'] = data['species']
 
-    row = pd.DataFrame({'pct':100.0, 'reads':Ntotal, 'taxReads':0, 'rank':'-', 'taxID':-1, 'taxName':'ALL', 'source':filename_parse[0], 'classifier':filename_parse[1], 'indent':-1.0}, index=[len(alldata)])
+    if 'rank' not in data.columns:
+        data['rank'] = '-'
+
+    if 'taxReads' not in data.columns:
+        data['taxReads'] = 0
+        
+    if 'kmers' not in data.columns:
+        data['kmers'] = 0
+        data['dup'] = 0
+        data['cov'] = 0
+
+    finder = (data.taxID == 0)
+    if (sum(finder) == 0):
+        Nunclassified = 0
+    else:
+        Nunclassified = data[finder].reads.iloc[0]
+
+    finder = (data.taxID == 1)
+    if (sum(finder) == 0):
+        Ntotal = Nroot = sum(data['reads'])
+    else:
+        Nroot = data[data.taxID == 1].reads.iloc[0]
+        Ntotal = Nunclassified + Nroot
+
+    row = pd.DataFrame({'pct':100.0, 'reads':Ntotal, 'taxReads':0, 'kmers':0, 'dup':0, 'cov':0, 'rank':'-', 'taxID':-1, 'taxName':'ALL', 'source':filename_parse[0], 'classifier':filename_parse[1], 'indent':-1.0}, index=[len(alldata)])
     data.index = data.index + (len(alldata) + 1)
     alldata = alldata.append(row.append(data))
-    
+
+
+alldata.to_csv('summary.tsv',sep='\t',header=True)
 
 # Subset the parts of the table we want
 #alldata = alldata[alldata.classifier.str.match(classifier)]

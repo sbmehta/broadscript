@@ -4,7 +4,7 @@ SAMPLE=$1
 CLASSIFIER=$2
 TAXON=$3
 FLOWCELL="HH32MDMXX"
-BASEFILE="/d/uafi/metagenomics/$CLASSIFIER.reads/$SAMPLE.$CLASSIFIER.reads.txt"
+BASEFILE="/e/uafi/metagenomics/$CLASSIFIER.reads/$SAMPLE.$CLASSIFIER.reads.txt"
 
 echo "\\n\\n\\nExtracting: SAMPLE{$SAMPLE} CLASSIFIER{$CLASSIFIER} TAXON{$TAXON}"
 echo "Basefile: $BASEFILE"
@@ -38,7 +38,7 @@ echo "Found $linecount reads."
 echo "\\n\\n\\n\\nExtracting read sequences ..."
 start=$(date +%s)
 awk '{print $2}' $SAMPLE.$CLASSIFIER.$TAXON.txt > $SAMPLE.$CLASSIFIER.$TAXON.list.txt
-java -jar ~/samtools-1.9/picard.jar FilterSamReads I=/d/uafi/raw.bam/$SAMPLE.bam O=$SAMPLE.$CLASSIFIER.$TAXON.bam READ_LIST_FILE=$SAMPLE.$CLASSIFIER.$TAXON.list.txt FILTER=includeReadList
+java -jar /usr/local/bin/picard.jar FilterSamReads I=/e/uafi/raw.bam/$SAMPLE.bam O=$SAMPLE.$CLASSIFIER.$TAXON.bam READ_LIST_FILE=$SAMPLE.$CLASSIFIER.$TAXON.list.txt FILTER=includeReadList
 rm $SAMPLE.$CLASSIFIER.$TAXON.list.txt
 finis=$(date +%s)
 echo "\\n\\nElapsed: $((finis-start)) seconds."

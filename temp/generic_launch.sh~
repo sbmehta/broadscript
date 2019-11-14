@@ -1,0 +1,45 @@
+#source /idi/sabeti-scratch/kjsiddle/dnanexus/dx-toolkit/environment
+## dx login --token 3aQSon1SFT7Op4l0a8bvrXR3gf9fMUmn
+#dx select project-F5z8Jpj0Yqp6fFpXGfJVBg3b                          # LASV/FUO 15-17
+
+
+
+############# STANDARD OPTIONS ###############
+APPNAME="deplete_only"
+APPDIR="/pipelines/1.23.0/deplete_only/"
+
+RESOURCEDIR="/resource_files"
+REFERENCEDIR="/references"
+
+INPUTDIR="raw_bam/"
+OUTPUTDIR="output/"
+
+ACCEPTFILTER_RE="bam"                     # ** Accept only files whose full paths match this regex pattern
+REJECTFILTER_RE="norejects"               # ** Reject any file whose full path matches this regex pattern
+
+## negative depletion filters
+OPTIONS=" -istage-1.blastDbs=$RESOURCEDIR/GRCh37.68_ncRNAlfasta.lz4"
+OPTIONS+=" -istage-1.blastDbs=$RESOURCEDIR/hybsel_probe_adapters.fasta"
+OPTIONS+=" -istage-1.bmtaggerDbs=$RESOURCEDIR/metag_v3.ncRNA.mRNA.mitRNA.consensus.fasta.lz4"
+OPTIONS+=" -istage-1.bmtaggerDbs=$RESOURCEDIR/metagenomics_contaminants_v3_fasta.lz4"
+OPTIONS+=" -istage-1.bwaDbs=$RESOURCEDIR/hg19.bwa_idx.tar.lz4"
+
+
+##############################################
+#DEBUG=0  # Uncomment to print filenames but not actually run
+
+for SAMPLE in $(dx find data --name *.bam --path /$INPUTDIR --delimiter "*" | cut -f 4 -d "*")
+do
+   SAMPLENAME=$(basename $SAMPLE)
+   if [[ $SAMPLE =~ $ACCEPTFILTER_RE ]] && [[ ! $SAMPLE =~ $REJECTFILTER_RE ]]  ; then
+      if [[ $DEBUG ]] ; then
+         echo $SAMPLE
+      else
+         dx run "$APPDIR/$APPNAME" --yes \
+              --destination "$OUTPUTDIR" \
+              --name "$APPNAME|${SAMPLENAME%.*}" \
+              -istage-1.raw_reads_unmapped_bam="$SAMPLE" $OPTIONS
+      fi
+   fi
+done
+
